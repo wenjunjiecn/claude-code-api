@@ -125,9 +125,11 @@ func (p *Process) Stop() {
 
 // Manager manages multiple Claude processes.
 type Manager struct {
-	cfg       *config.Config
-	processes map[string]*Process
-	mu        sync.RWMutex
+	cfg         *config.Config
+	processes   map[string]*Process
+	mu          sync.RWMutex
+	version     string
+	versionOnce sync.Once
 }
 
 // NewManager creates a new Claude manager.
@@ -139,13 +141,22 @@ func NewManager(cfg *config.Config) *Manager {
 }
 
 // GetVersion returns the Claude CLI version.
+// Caches the result to avoid repeated subprocess calls.
 func (m *Manager) GetVersion() (string, error) {
-	cmd := exec.Command(m.cfg.ClaudeBinaryPath, "--version")
-	out, err := cmd.Output()
-	if err != nil {
+	var err error
+	m.versionOnce.Do(func() {
+		cmd := exec.Command(m.cfg.ClaudeBinaryPath, "--version")
+		var out []byte
+		out, err = cmd.Output()
+		if err == nil {
+			m.version = strings.TrimSpace(string(out))
+		}
+	})
+
+	if m.version == "" && err != nil {
 		return "", fmt.Errorf("failed to get claude version: %w", err)
 	}
-	return strings.TrimSpace(string(out)), nil
+	return m.version, nil
 }
 
 // CreateSession creates and starts a new Claude session.

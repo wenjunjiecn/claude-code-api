@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"claude-code-api/internal/claude"
+	"claude-code-api/internal/config"
 	"claude-code-api/internal/models"
 
 	"github.com/gin-gonic/gin"
@@ -13,15 +14,17 @@ import (
 
 // ModelsHandler handles models-related requests.
 type ModelsHandler struct {
+	cfg     *config.Config
 	manager *claude.Manager
 }
 
 // NewModelsHandler creates a new models handler.
-func NewModelsHandler(manager *claude.Manager) *ModelsHandler {
-	return &ModelsHandler{manager: manager}
+func NewModelsHandler(cfg *config.Config, manager *claude.Manager) *ModelsHandler {
+	return &ModelsHandler{cfg: cfg, manager: manager}
 }
 
 // HandleListModels handles GET /v1/models
+// Returns models from config file
 func (h *ModelsHandler) HandleListModels(c *gin.Context) {
 	claudeVersion, _ := h.manager.GetVersion()
 	ownedBy := "anthropic"
@@ -32,9 +35,9 @@ func (h *ModelsHandler) HandleListModels(c *gin.Context) {
 	baseTimestamp := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
 
 	var modelObjects []models.ModelObject
-	for i, m := range models.AllModels() {
+	for i, m := range h.cfg.Models {
 		modelObjects = append(modelObjects, models.ModelObject{
-			ID:      string(m),
+			ID:      m.ID,
 			Object:  "model",
 			Created: baseTimestamp + int64(i),
 			OwnedBy: ownedBy,
@@ -48,34 +51,21 @@ func (h *ModelsHandler) HandleListModels(c *gin.Context) {
 }
 
 // HandleGetModel handles GET /v1/models/:model_id
+// Returns info for any model - doesn't validate since any model name can be used
 func (h *ModelsHandler) HandleGetModel(c *gin.Context) {
 	modelID := c.Param("model_id")
 
-	// Check if valid model
-	for _, m := range models.AllModels() {
-		if string(m) == modelID {
-			claudeVersion, _ := h.manager.GetVersion()
-			ownedBy := "anthropic"
-			if claudeVersion != "" {
-				ownedBy = "anthropic-claude-" + claudeVersion
-			}
-
-			c.JSON(http.StatusOK, models.ModelObject{
-				ID:      modelID,
-				Object:  "model",
-				Created: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC).Unix(),
-				OwnedBy: ownedBy,
-			})
-			return
-		}
+	claudeVersion, _ := h.manager.GetVersion()
+	ownedBy := "anthropic"
+	if claudeVersion != "" {
+		ownedBy = "anthropic-claude-" + claudeVersion
 	}
 
-	c.JSON(http.StatusNotFound, models.ErrorResponse{
-		Error: models.ErrorDetail{
-			Message: "Model not found: " + modelID,
-			Type:    "not_found",
-			Code:    "model_not_found",
-		},
+	c.JSON(http.StatusOK, models.ModelObject{
+		ID:      modelID,
+		Object:  "model",
+		Created: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC).Unix(),
+		OwnedBy: ownedBy,
 	})
 }
 
@@ -83,27 +73,13 @@ func (h *ModelsHandler) HandleGetModel(c *gin.Context) {
 func (h *ModelsHandler) HandleModelCapabilities(c *gin.Context) {
 	var capabilities []map[string]interface{}
 
-	for _, m := range models.AllModels() {
-		info := models.GetModelInfo(string(m))
+	for _, m := range h.cfg.Models {
 		cap := map[string]interface{}{
-			"id":                 info.ID,
-			"name":               info.Name,
-			"description":        info.Description,
-			"max_tokens":         info.MaxTokens,
-			"supports_streaming": info.SupportsStreaming,
-			"supports_tools":     info.SupportsTools,
-			"pricing": map[string]interface{}{
-				"input_cost_per_1k_tokens":  info.InputCostPer1K,
-				"output_cost_per_1k_tokens": info.OutputCostPer1K,
-				"currency":                  "USD",
-			},
-			"features": []string{
-				"text_generation",
-				"conversation",
-				"code_generation",
-				"analysis",
-				"reasoning",
-			},
+			"id":                 m.ID,
+			"name":               m.Name,
+			"description":        m.Description,
+			"supports_streaming": true,
+			"supports_tools":     true,
 		}
 		capabilities = append(capabilities, cap)
 	}

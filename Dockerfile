@@ -29,6 +29,12 @@ WORKDIR /app
 # Copy binary from builder
 COPY --from=builder /app/claude-api .
 
+# Copy default config (can be overridden by mount)
+COPY config.yaml /app/config.yaml
+
+# Set config file path
+ENV CONFIG_FILE=/app/config.yaml
+
 # Expose port
 EXPOSE 8000
 

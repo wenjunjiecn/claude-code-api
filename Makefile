@@ -19,6 +19,10 @@ docker-build:
 docker-run:
 	docker run -p 8000:8000 claude-code-api
 
+# Docker with custom config (mount your config.yaml)
+docker-run-config:
+	docker run -p 8000:8000 -v $(PWD)/config.yaml:/app/config.yaml claude-code-api
+
 # Clean
 clean:
 	rm -rf bin/

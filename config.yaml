@@ -1,0 +1,25 @@
+# Claude Code API Gateway Configuration
+#
+# This file configures the models shown in /v1/models endpoint.
+# Note: The chat API accepts ANY model name - not limited to this list.
+
+models:
+  - id: claude-opus-4-20250514
+    name: Claude Opus 4
+    description: Most powerful Claude model for complex reasoning
+
+  - id: claude-sonnet-4-5-20250929
+    name: Claude Sonnet 4.5
+    description: Latest Sonnet - best for coding and agentic tasks
+
+  - id: claude-sonnet-4-20250514
+    name: Claude Sonnet 4
+    description: Balanced performance and cost
+
+  - id: claude-3-7-sonnet-20250219
+    name: Claude Sonnet 3.7
+    description: Hybrid reasoning model
+
+  - id: claude-3-5-haiku-20241022
+    name: Claude Haiku 3.5
+    description: Fast and cost-effective

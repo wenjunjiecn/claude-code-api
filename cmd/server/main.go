@@ -67,7 +67,7 @@ func main() {
 
 	// Create handlers
 	chatHandler := api.NewChatHandler(cfg, manager)
-	modelsHandler := api.NewModelsHandler(manager)
+	modelsHandler := api.NewModelsHandler(cfg, manager)
 
 	// Root endpoint
 	router.GET("/", func(c *gin.Context) {

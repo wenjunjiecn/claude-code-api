@@ -18,7 +18,7 @@ type Config struct {
 
 	// Claude settings
 	ClaudeBinaryPath      string `envconfig:"CLAUDE_BINARY_PATH"`
-	DefaultModel          string `envconfig:"DEFAULT_MODEL" default:"claude-3-5-sonnet-20241022"`
+	DefaultModel          string `envconfig:"DEFAULT_MODEL" default:"claude-sonnet-4-5-20250929"`
 	MaxConcurrentSessions int    `envconfig:"MAX_CONCURRENT_SESSIONS" default:"10"`
 	SessionTimeoutMinutes int    `envconfig:"SESSION_TIMEOUT_MINUTES" default:"30"`
 	StreamingTimeoutSecs  int    `envconfig:"STREAMING_TIMEOUT_SECONDS" default:"300"`
@@ -35,9 +35,22 @@ type Config struct {
 
 	// Logging
 	LogLevel string `envconfig:"LOG_LEVEL" default:"info"`
+
+	// Config file path
+	ConfigFile string `envconfig:"CONFIG_FILE" default:"config.yaml"`
+
+	// Models loaded from config file
+	Models []ModelConfig `ignored:"true"`
 }
 
-// Load loads configuration from environment variables.
+// ModelConfig represents a model entry in config file.
+type ModelConfig struct {
+	ID          string `yaml:"id"`
+	Name        string `yaml:"name"`
+	Description string `yaml:"description"`
+}
+
+// Load loads configuration from environment variables and config file.
 func Load() (*Config, error) {
 	cfg := &Config{}
 	if err := envconfig.Process("", cfg); err != nil {
@@ -54,7 +67,80 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	// Load models from config file
+	cfg.Models = loadModelsFromFile(cfg.ConfigFile)
+
 	return cfg, nil
+}
+
+// ConfigFile represents the structure of config.yaml
+type ConfigFile struct {
+	Models []ModelConfig `yaml:"models"`
+}
+
+// loadModelsFromFile loads models from YAML config file
+func loadModelsFromFile(path string) []ModelConfig {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		// Return default models if file doesn't exist
+		return defaultModels()
+	}
+
+	var cf ConfigFile
+	if err := parseYAML(data, &cf); err != nil {
+		return defaultModels()
+	}
+
+	if len(cf.Models) == 0 {
+		return defaultModels()
+	}
+
+	return cf.Models
+}
+
+// parseYAML is a simple YAML parser for our config format
+func parseYAML(data []byte, cf *ConfigFile) error {
+	lines := strings.Split(string(data), "\n")
+	var currentModel *ModelConfig
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		if strings.HasPrefix(line, "- id:") {
+			if currentModel != nil {
+				cf.Models = append(cf.Models, *currentModel)
+			}
+			currentModel = &ModelConfig{
+				ID: strings.TrimSpace(strings.TrimPrefix(line, "- id:")),
+			}
+		} else if currentModel != nil {
+			if strings.HasPrefix(line, "name:") {
+				currentModel.Name = strings.TrimSpace(strings.TrimPrefix(line, "name:"))
+			} else if strings.HasPrefix(line, "description:") {
+				currentModel.Description = strings.TrimSpace(strings.TrimPrefix(line, "description:"))
+			}
+		}
+	}
+
+	if currentModel != nil {
+		cf.Models = append(cf.Models, *currentModel)
+	}
+
+	return nil
+}
+
+// defaultModels returns the default model list
+func defaultModels() []ModelConfig {
+	return []ModelConfig{
+		{ID: "claude-opus-4-20250514", Name: "Claude Opus 4", Description: "Most powerful Claude model"},
+		{ID: "claude-sonnet-4-5-20250929", Name: "Claude Sonnet 4.5", Description: "Latest Sonnet - best for coding"},
+		{ID: "claude-sonnet-4-20250514", Name: "Claude Sonnet 4", Description: "Balanced performance and cost"},
+		{ID: "claude-3-7-sonnet-20250219", Name: "Claude Sonnet 3.7", Description: "Hybrid reasoning model"},
+		{ID: "claude-3-5-haiku-20241022", Name: "Claude Haiku 3.5", Description: "Fast and cost-effective"},
+	}
 }
 
 // findClaudeBinary attempts to find the Claude CLI binary.

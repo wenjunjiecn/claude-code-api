@@ -44,8 +44,11 @@ func (h *ChatHandler) HandleChatCompletion(c *gin.Context) {
 		return
 	}
 
-	// Validate model
-	claudeModel := models.ValidateModel(req.Model)
+	// Use model directly - Claude CLI will validate
+	claudeModel := req.Model
+	if claudeModel == "" {
+		claudeModel = h.cfg.DefaultModel
+	}
 
 	// Extract user prompt
 	var userPrompt string
