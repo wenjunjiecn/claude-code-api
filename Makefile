@@ -1,66 +1,43 @@
-# Claude Code API - Simple & Working
+# Claude Code API - Go Implementation
 
-# Python targets
-install:
-	pip install -e .
-	pip install requests
+# Build
+build:
+	CGO_ENABLED=0 go build -o bin/claude-api ./cmd/server
 
+# Run
+run: build
+	./bin/claude-api
+
+# Test
 test:
-	python -m pytest tests/ -v
+	go test ./...
 
-test-real:
-	python tests/test_real_api.py
+# Docker
+docker-build:
+	docker build -t claude-code-api .
 
-start:
-	uvicorn claude_code_api.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude="*.db*" --reload-exclude="*.log"
+docker-run:
+	docker run -p 8000:8000 claude-code-api
 
-start-prod:
-	uvicorn claude_code_api.main:app --host 0.0.0.0 --port 8000
-
+# Clean
 clean:
-	find . -name "*.pyc" -delete
-	find . -name "__pycache__" -delete
+	rm -rf bin/
 
+# Kill process on specific port
 kill:
 	@if [ -z "$(PORT)" ]; then \
-		echo "Error: PORT parameter is required. Usage: make kill PORT=8001"; \
+		echo "Usage: make kill PORT=8000"; \
 	else \
-		echo "Looking for processes on port $(PORT)..."; \
-		if [ "$$(uname)" = "Darwin" ] || [ "$$(uname)" = "Linux" ]; then \
-			PID=$$(lsof -iTCP:$(PORT) -sTCP:LISTEN -t); \
-			if [ -n "$$PID" ]; then \
-				echo "Found process(es) with PID(s): $$PID"; \
-				kill -9 $$PID && echo "Process(es) killed successfully."; \
-			else \
-				echo "No process found listening on port $(PORT)."; \
-			fi; \
-		else \
-			echo "This command is only supported on Unix-like systems (Linux/macOS)."; \
-		fi; \
+		lsof -iTCP:$(PORT) -sTCP:LISTEN -t | xargs -r kill -9 2>/dev/null || true; \
+		echo "Killed processes on port $(PORT)"; \
 	fi
 
 help:
 	@echo "Claude Code API Commands:"
 	@echo ""
-	@echo "Python API:"
-	@echo "  make install     - Install Python dependencies"
-	@echo "  make test        - Run Python unit tests with real Claude integration"
-	@echo "  make test-real   - Run REAL end-to-end tests (curls actual API)"
-	@echo "  make start       - Start Python API server (development with reload)"
-	@echo "  make start-prod  - Start Python API server (production)"
-	@echo ""
-	@echo "TypeScript API:"
-	@echo "  make install-js     - Install TypeScript dependencies" 
-	@echo "  make test-js        - Run TypeScript unit tests"
-	@echo "  make test-js-real   - Run Python test suite against TypeScript API"
-	@echo "  make start-js       - Start TypeScript API server (production)"
-	@echo "  make start-js-dev   - Start TypeScript API server (development with reload)"
-	@echo "  make start-js-prod  - Build and start TypeScript API server (production)"
-	@echo "  make build-js       - Build TypeScript project"
-	@echo ""
-	@echo "General:"
-	@echo "  make clean       - Clean up Python cache files"
-	@echo "  make kill PORT=X - Kill process on specific port"
-	@echo ""
-	@echo "IMPORTANT: Both implementations are functionally equivalent!"
-	@echo "Use Python or TypeScript - both provide the same OpenAI-compatible API."
+	@echo "  make build        - Build binary"
+	@echo "  make run          - Build and run"
+	@echo "  make test         - Run tests"
+	@echo "  make docker-build - Build Docker image"
+	@echo "  make docker-run   - Run Docker container"
+	@echo "  make clean        - Remove build artifacts"
